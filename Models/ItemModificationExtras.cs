@@ -144,19 +144,18 @@ public sealed class RewardDisplayItem
     public string Template { get; set; } = string.Empty;
 }
 
-public class QuestAssortConfig
+public sealed class QuestAssortConfig
 {
-    [JsonPropertyName("traderId")]
-    public string TraderId { get; set; } = string.Empty;
-
-    [JsonPropertyName("assortId")]
-    public string? AssortId { get; set; }
-
     [JsonPropertyName("questId")]
     public string QuestId { get; set; } = string.Empty;
-
+    [JsonPropertyName("traderId")]
+    public string? TraderId { get; set; }
+    [JsonPropertyName("assortId")]
+    public string? AssortId { get; set; }
+    [JsonPropertyName("presetId")]
+    public string? PresetId { get; set; }
     [JsonPropertyName("status")]
-    public string Status { get; set; } = "Success";
+    public string? Status { get; set; }
 }
 
 public class PresetTraderConfig
