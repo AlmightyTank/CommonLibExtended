@@ -1,20 +1,20 @@
-using CommonCore.Constants;
-using CommonCore.Core;
-using CommonCore.Models;
+
+using CommonLibExtended.Constants;
+using CommonLibExtended.Core;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Services;
 using WTTServerCommonLib.Models;
-using static CommonCore.Models.CommonCoreItemConfig;
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public sealed class PresetTraderOfferHelper(
-    CoreDebugLogHelper debugLogHelper,
+    DebugLogHelper debugLogHelper,
     DatabaseService databaseService,
-    CommonCoreSettings settings,
+    CLESettings settings,
     PresetBuildHelper presetBuildHelper,
     BuiltPresetCache builtPresetCache)
 {
@@ -22,9 +22,9 @@ public sealed class PresetTraderOfferHelper(
     private const string UsdTpl = "5696686a4bdc2da3298b456a";
     private const string EurTpl = "569668774bdc2da2298b4568";
 
-    public void Process(CommonCoreItemRequest request)
+    public void Process(ItemModificationRequest request)
     {
-        if (request.Config.PresetTraders == null || request.Config.PresetTraders.Count == 0)
+        if (request.Extras.PresetTraders == null || request.Extras.PresetTraders.Count == 0)
         {
             return;
         }
@@ -35,7 +35,7 @@ public sealed class PresetTraderOfferHelper(
             return;
         }
 
-        foreach (var (traderKey, assortEntries) in request.Config.PresetTraders)
+        foreach (var (traderKey, assortEntries) in request.Extras.PresetTraders)
         {
             var traderId = ResolveTraderId(traderKey);
             if (string.IsNullOrWhiteSpace(traderId))
@@ -171,7 +171,7 @@ public sealed class PresetTraderOfferHelper(
             return settings.DefaultTraderId;
         }
 
-        if (ItemMaps.TraderMap.TryGetValue(traderKey.ToLowerInvariant(), out var traderId))
+        if (Maps.TraderMap.TryGetValue(traderKey.ToLowerInvariant(), out var traderId))
         {
             return traderId;
         }

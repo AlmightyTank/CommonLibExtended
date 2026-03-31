@@ -1,315 +1,263 @@
-﻿using CommonCore.Constants;
-using CommonCore.Core;
-using CommonCore.Models;
+﻿using CommonLibExtended.Constants;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
-using SPTarkov.Server.Core.DI;
-using SPTarkov.Server.Core.Extensions;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
-using SPTarkov.Server.Core.Models.Utils;
+using SPTarkov.Server.Core.Models.Spt.Server;
+using SPTarkov.Server.Core.Models.Spt.Templates;
 using SPTarkov.Server.Core.Services;
+using WTTServerCommonLib.Models;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
-public sealed class QuestAssortHelper(
-    CoreDebugLogHelper debugLogHelper,
-    DatabaseService databaseService,
-    CommonCoreSettings settings)
+[Injectable(InjectionType.Singleton)]
+public sealed class QuestAssortHelper
 {
-    private const string StartedStatus = "started";
-    private const string SuccessStatus = "success";
-    private const string FailStatus = "fail";
+    private const string StartedStatus = "Started";
+    private const string SuccessStatus = "Success";
+    private const string FailStatus = "Fail";
 
-    public void Process(CommonCoreItemRequest request)
+    private readonly DebugLogHelper _debug;
+    private readonly DatabaseService? _databaseService;
+
+
+    public QuestAssortHelper(
+        DebugLogHelper debugLogHelper,
+        DatabaseService databaseService)
     {
-        if (request.Config.QuestAssorts == null || request.Config.QuestAssorts.Count == 0)
+        _debug = debugLogHelper;
+        _databaseService = databaseService;
+    }
+
+    public void Process(ItemModificationRequest request)
+    {
+        if (!request.Extras.AddToQuestAssorts || request.Extras.QuestAssorts.Length == 0)
         {
             return;
         }
 
-        var assortId = ResolveAssortId(request.Config);
+        var tables = _databaseService.GetTables();
 
-        foreach (var config in request.Config.QuestAssorts)
+        foreach (var config in request.Extras.QuestAssorts)
         {
             if (config == null)
             {
                 continue;
             }
 
-            if (string.IsNullOrWhiteSpace(config.QuestId))
-            {
-                debugLogHelper.LogError("QuestAssortHelper", $"Missing QuestId for item {request.ItemId}");
-                continue;
-            }
-
-            var status = NormalizeStatus(config.Status);
-
-            var traderId =
-                ResolveTraderIdFromAssort(request.Config, assortId)
-                ?? ResolveTraderId(config.TraderId);
-
-            if (string.IsNullOrWhiteSpace(traderId))
-            {
-                debugLogHelper.LogError("QuestAssortHelper", $"Could not resolve traderId for assort {assortId}");
-                continue;
-            }
-
-            var success = AddQuestAssort(traderId, config.QuestId, assortId, status);
-            if (!success)
-            {
-                continue;
-            }
-
-            var loyaltyLevel = ResolveLoyaltyLevel(request.Config, assortId);
-
-            AddQuestAssortRewardDisplay(
-                config.QuestId,
-                traderId,
-                assortId,
-                status,
-                request.ItemId,
-                loyaltyLevel);
+            ProcessSingle(request, config, tables.Traders, tables.Templates.Quests);
         }
     }
 
-    public bool AddQuestAssort(
-        string traderId,
-        string questId,
-        string assortId,
-        string status)
+    private void ProcessSingle(
+        ItemModificationRequest request,
+        QuestAssortConfig config,
+        Dictionary<MongoId, Trader> traders,
+        Dictionary<MongoId, Quest> quests)
     {
-        if (!databaseService.GetTraders().TryGetValue(traderId, out var trader))
+        var traderId = ResolveTraderId(config.TraderId, traders);
+
+        if (string.IsNullOrWhiteSpace(traderId))
         {
-            debugLogHelper.LogError("QuestAssortHelper", $"Trader {traderId} not found");
-            return false;
-        }
-
-        if (trader.QuestAssort == null)
-        {
-            debugLogHelper.LogError("QuestAssortHelper", $"QuestAssort is null for trader {traderId}");
-            return false;
-        }
-
-        if (!HasValidTraderAssort(trader, assortId))
-        {
-            debugLogHelper.LogError("QuestAssortHelper", $"Invalid trader assort {assortId} for trader {traderId}");
-            return false;
-        }
-
-        if (!trader.QuestAssort.TryGetValue(status, out var bucket))
-        {
-            debugLogHelper.LogError("QuestAssortHelper", $"Missing quest assort bucket {status} for trader {traderId}");
-            return false;
-        }
-
-        bucket[assortId] = questId;
-
-        debugLogHelper.LogService(
-            "QuestAssortHelper",
-            $"Mapped quest assort: trader={traderId}, assort={assortId}, quest={questId}, status={status}");
-
-        return true;
-    }
-
-    private void AddQuestAssortRewardDisplay(
-        string questId,
-        string traderId,
-        string assortId,
-        string status,
-        string template,
-        int loyaltyLevel)
-    {
-        var quests = databaseService.GetTables().Templates.Quests;
-
-        if (!quests.TryGetValue(questId, out var quest))
-        {
-            debugLogHelper.LogError("QuestAssortHelper", $"Quest {questId} not found");
+            _debug.LogError("QuestAssortHelper", $"Invalid trader '{config.TraderId}'");
             return;
         }
 
-        quest.Rewards ??= new Dictionary<string, List<Reward>>(StringComparer.OrdinalIgnoreCase);
+        MongoId traderMongoId = traderId;
 
-        var bucket = NormalizeRewardBucket(status);
-
-        quest.Rewards.TryAdd("Started", []);
-        quest.Rewards.TryAdd("Success", []);
-        quest.Rewards.TryAdd("Fail", []);
-
-        var rewards = quest.Rewards[bucket];
-
-        if (rewards.Any(x => x.Target == assortId))
+        var assortId = ResolveAssortId(request, traderId, config);
+        if (string.IsNullOrWhiteSpace(assortId))
         {
-            debugLogHelper.LogService(
-                "QuestAssortHelper",
-                $"Quest assort UI reward already exists for assort {assortId}, quest {questId}");
+            _debug.LogError("QuestAssortHelper", $"Could not resolve assortId for trader '{traderId}'");
             return;
         }
 
-        var rewardItems = new List<Item>
-        {
-            new Item
-            {
-                Id = assortId,
-                Template = template
-            }
-        };
+        EnsureBuckets(traderMongoId, traders);
+        AddToBucket(traderMongoId, assortId, config.QuestId, config.Status, traders);
+        AddRewardDisplay(request, config.QuestId, traderId, assortId, quests);
 
-        var reward = new Reward
-        {
-            AvailableInGameEditions = [],
-            Id = new MongoId(),
-            Index = rewards.Count,
-            Type = RewardType.AssortmentUnlock,
-            Target = assortId,
-            TraderId = traderId,
-            Value = 1,
-            Items = rewardItems,
-            LoyaltyLevel = loyaltyLevel
-        };
-
-        rewards.Add(reward);
-
-        debugLogHelper.LogService(
-            "QuestAssortHelper",
-            $"Added quest assort UI reward: quest={questId}, trader={traderId}, assort={assortId}, bucket={bucket}, loyalty={loyaltyLevel}");
+        _debug.LogService("QuestAssortHelper", $"Added {assortId} -> {config.QuestId} ({config.Status})");
     }
 
-    private static bool HasValidTraderAssort(Trader trader, string assortId)
+    // -------------------------
+    // RESOLUTION
+    // -------------------------
+
+    private static string ResolveTraderId(string traderIdOrAlias, Dictionary<MongoId, Trader> traders)
     {
-        return trader.Assort?.Items?.Any(x => x.Id == assortId) == true
-            && trader.Assort?.BarterScheme?.ContainsKey(assortId) == true
-            && trader.Assort?.LoyalLevelItems?.ContainsKey(assortId) == true;
-    }
-
-    private static int ResolveLoyaltyLevel(CommonCoreItemConfig request, string assortId)
-    {
-        if (request.Traders != null)
+        if (string.IsNullOrWhiteSpace(traderIdOrAlias))
         {
-            foreach (var (_, assortEntries) in request.Traders)
-            {
-                if (assortEntries != null &&
-                    assortEntries.TryGetValue(assortId, out var traderEntry) &&
-                    traderEntry?.ConfigBarterSettings != null)
-                {
-                    return traderEntry.ConfigBarterSettings.LoyalLevel;
-                }
-            }
+            return string.Empty;
         }
 
-        if (request.PresetTraders != null)
+        MongoId traderMongoId = traderIdOrAlias;
+        if (traders.ContainsKey(traderMongoId))
         {
-            foreach (var (_, assortEntries) in request.PresetTraders)
-            {
-                if (assortEntries != null &&
-                    assortEntries.TryGetValue(assortId, out var presetTraderEntry) &&
-                    presetTraderEntry?.ConfigBarterSettings != null)
-                {
-                    return presetTraderEntry.ConfigBarterSettings.LoyalLevel;
-                }
-            }
+            return traderIdOrAlias;
         }
 
-        return 1;
-    }
-
-    private string? ResolveTraderIdFromAssort(CommonCoreItemConfig request, string assortId)
-    {
-        if (request.Traders != null)
+        if (Maps.TraderMap.TryGetValue(traderIdOrAlias, out var mapped))
         {
-            foreach (var (traderKey, assortEntries) in request.Traders)
-            {
-                if (assortEntries != null && assortEntries.ContainsKey(assortId))
-                {
-                    return ResolveTraderId(traderKey);
-                }
-            }
-        }
-
-        if (request.PresetTraders != null)
-        {
-            foreach (var (traderKey, assortEntries) in request.PresetTraders)
-            {
-                if (assortEntries != null && assortEntries.ContainsKey(assortId))
-                {
-                    return ResolveTraderId(traderKey);
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private static string ResolveAssortId(CommonCoreItemConfig request)
-    {
-        if (request.Traders != null)
-        {
-            foreach (var (_, assortEntries) in request.Traders)
-            {
-                if (assortEntries == null)
-                {
-                    continue;
-                }
-
-                var firstKey = assortEntries.Keys.FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(firstKey) && firstKey.IsValidMongoId())
-                {
-                    return firstKey;
-                }
-            }
-        }
-
-        if (request.PresetTraders != null)
-        {
-            foreach (var (_, assortEntries) in request.PresetTraders)
-            {
-                if (assortEntries == null)
-                {
-                    continue;
-                }
-
-                var firstKey = assortEntries.Keys.FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(firstKey) && firstKey.IsValidMongoId())
-                {
-                    return firstKey;
-                }
-            }
+            return mapped;
         }
 
         return string.Empty;
     }
 
-    private static string NormalizeRewardBucket(string status)
+    private static string ResolveAssortId(ItemModificationRequest request, string traderId, QuestAssortConfig config)
     {
-        if (status.Equals(StartedStatus, StringComparison.OrdinalIgnoreCase)) return "Started";
-        if (status.Equals(FailStatus, StringComparison.OrdinalIgnoreCase)) return "Fail";
-        return "Success";
+        if (!string.IsNullOrWhiteSpace(config.AssortId))
+        {
+            return config.AssortId;
+        }
+
+        if (request.Config.Traders != null &&
+            request.Config.Traders.TryGetValue(traderId, out var entries) &&
+            entries.Count > 0)
+        {
+            return entries.Keys.First();
+        }
+
+        return string.Empty;
     }
+
+    // -------------------------
+    // BUCKETS
+    // -------------------------
+
+    private void EnsureBuckets(MongoId traderId, Dictionary<MongoId, Trader> traders)
+    {
+        var trader = traders.GetValueOrDefault(traderId);
+
+        if (trader?.QuestAssort == null)
+        {
+            _debug.LogError("QuestAssortHelper", $"Trader '{traderId}' missing QuestAssort");
+            return;
+        }
+
+        trader.QuestAssort.TryAdd("started", new Dictionary<MongoId, MongoId>());
+        trader.QuestAssort.TryAdd("success", new Dictionary<MongoId, MongoId>());
+        trader.QuestAssort.TryAdd("fail", new Dictionary<MongoId, MongoId>());
+    }
+
+    private static void AddToBucket(
+        MongoId traderId,
+        string assortId,
+        string questId,
+        string? status,
+        Dictionary<MongoId, Trader> traders)
+    {
+        var trader = traders[traderId];
+
+        var bucketKey = NormalizeStatus(status).ToLowerInvariant();
+
+        var bucket = trader.QuestAssort[bucketKey];
+
+        MongoId assortMongoId = assortId;
+        MongoId questMongoId = questId;
+
+        bucket[assortMongoId] = questMongoId;
+    }
+
+    // -------------------------
+    // REWARD DISPLAY
+    // -------------------------
+
+    private void AddRewardDisplay(
+        ItemModificationRequest request,
+        string questId,
+        string traderId,
+        string assortId,
+        Dictionary<MongoId, Quest> quests)
+    {
+        MongoId questMongoId = questId;
+
+        if (!quests.TryGetValue(questMongoId, out var quest))
+        {
+            _debug.LogError("QuestAssortHelper", $"Quest '{questId}' not found");
+            return;
+        }
+
+        quest.Rewards ??= [];
+        quest.Rewards["Success"] ??= [];
+
+        var loyaltyLevel = ResolveLoyaltyLevel(request, traderId, assortId);
+
+        var exists = quest.Rewards["Success"].Any(x =>
+            x.Type == RewardType.AssortmentUnlock &&
+            x.TraderId == traderId &&
+            x.Target == assortId);
+
+        if (exists)
+        {
+            return;
+        }
+
+        quest.Rewards["Success"].Add(new()
+        {
+            Type = RewardType.AssortmentUnlock,
+            TraderId = traderId,
+            Target = assortId,
+            Index = quest.Rewards["Success"].Count,
+            LoyaltyLevel = loyaltyLevel,
+            Items = BuildRewardItems(request)
+        });
+
+        _debug.LogService(
+            "QuestAssortHelper",
+            $"RewardDisplay added for {questId} (assort {assortId}, trader {traderId}, loyalty {loyaltyLevel})");
+    }
+
+    // -------------------------
+    // UTILS
+    // -------------------------
 
     private static string NormalizeStatus(string? status)
     {
-        if (string.IsNullOrWhiteSpace(status)) return SuccessStatus;
-        return status.ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return SuccessStatus;
+        }
+
+        return status.ToLowerInvariant() switch
+        {
+            "started" => StartedStatus,
+            "fail" => FailStatus,
+            _ => SuccessStatus
+        };
     }
 
-    private string? ResolveTraderId(string? traderKey)
+    private static int ResolveLoyaltyLevel(ItemModificationRequest request, string traderId, string assortId)
     {
-        if (settings.ForceAllItemsToDefaultTrader)
+        if (request.Config.Traders != null &&
+            request.Config.Traders.TryGetValue(traderId, out var traderEntries) &&
+            traderEntries.TryGetValue(assortId, out var assortConfig) &&
+            assortConfig?.ConfigBarterSettings != null)
         {
-            return settings.DefaultTraderId;
+            return assortConfig.ConfigBarterSettings.LoyalLevel;
         }
 
-        if (string.IsNullOrWhiteSpace(traderKey))
-        {
-            return settings.DefaultTraderId;
-        }
+        return 0;
+    }
 
-        if (ItemMaps.TraderMap.TryGetValue(traderKey.ToLowerInvariant(), out var traderId))
-        {
-            return traderId;
-        }
+    private static List<Item> BuildRewardItems(ItemModificationRequest request)
+    {
+        var itemId = !string.IsNullOrWhiteSpace(request.ItemId)
+            ? request.ItemId
+            : Guid.NewGuid().ToString("N")[..24];
 
-        return traderKey;
+        var itemTpl = !string.IsNullOrWhiteSpace(request.Config?.ItemTplToClone)
+            ? request.Config.ItemTplToClone
+            : request.ItemId;
+
+        return
+        [
+            new Item
+        {
+            Id = itemId,
+            Template = itemTpl
+        }
+        ];
     }
 }

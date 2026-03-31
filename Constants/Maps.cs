@@ -1,8 +1,8 @@
 ﻿using SPTarkov.Server.Core.Models.Common;
 
-namespace CommonCore.Constants;
+namespace CommonLibExtended.Constants;
 
-public static class ItemMaps
+public static class Maps
 {
     public static readonly Dictionary<string, MongoId> ItemBaseClassMap =
         new(StringComparer.OrdinalIgnoreCase)

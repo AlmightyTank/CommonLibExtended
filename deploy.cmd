@@ -12,7 +12,7 @@ set "ASSEMBLY=%~3"
 REM Change this to your SPT install
 set "SPTROOT=C:\SPT\SPT"
 
-set "MODDIR=%SPTROOT%\user\mods\CommonCore"
+set "MODDIR=%SPTROOT%\user\mods\CommonLibExtended"
 
 echo ===============================
 echo Deploying %ASSEMBLY%

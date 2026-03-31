@@ -1,9 +1,11 @@
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.Models.Common;
+using System.Text.Json.Serialization;
 
-namespace CommonCore.Core;
+namespace CommonLibExtended.Core;
 
-public sealed class CommonCoreSettings
+[Injectable]
+public class CLESettings
 {
     private static readonly MongoId FallbackTraderId = new("5a7c2eca46aef81a7ca2145d");
 
@@ -11,18 +13,15 @@ public sealed class CommonCoreSettings
     public ItemSettings Items { get; set; } = new();
     public TraderSettings Traders { get; set; } = new();
     public QuestSettings Quests { get; set; } = new();
+    [JsonPropertyName("forceAllItemsToDefaultTrader")]
+    public bool ForceAllItemsToDefaultTrader { get; set; } = false;
 
-    /// <summary>
-    /// Runtime default trader used when a trader mod takes ownership of item routing.
-    /// Not intended to be loaded from config.json.
-    /// </summary>
-    public MongoId DefaultTraderId { get; private set; } = FallbackTraderId;
+    [JsonPropertyName("defaultTraderId")]
+    public string DefaultTraderId { get; set; } = "5a7c2eca46aef81a7ca2145d";
 
-    /// <summary>
-    /// True when a trader mod explicitly takes over all item routing.
-    /// Not intended to be loaded from config.json.
-    /// </summary>
-    public bool ForceAllItemsToDefaultTrader { get; private set; }
+    [JsonPropertyName("handbookTraderFallbacks")]
+    public Dictionary<string, string> HandbookTraderFallbacks { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public void SetDefaultTrader(MongoId traderId, bool forceAllItems = true)
     {
@@ -31,13 +30,13 @@ public sealed class CommonCoreSettings
             return;
         }
 
-        DefaultTraderId = traderId;
+        DefaultTraderId = traderId.ToString();
         ForceAllItemsToDefaultTrader = forceAllItems;
     }
 
     public void ResetDefaultTrader()
     {
-        DefaultTraderId = FallbackTraderId;
+        DefaultTraderId = FallbackTraderId.ToString();
         ForceAllItemsToDefaultTrader = false;
     }
 }

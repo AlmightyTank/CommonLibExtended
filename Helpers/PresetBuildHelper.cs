@@ -1,16 +1,16 @@
 using CommonCore.Generator;
-using CommonCore.Models;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Utils;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public sealed class PresetBuildHelper(
-    CoreDebugLogHelper debugLogHelper)
+    DebugLogHelper debugLogHelper)
 {
     public BuiltPresetResult? BuildForTrader(
         Preset preset,

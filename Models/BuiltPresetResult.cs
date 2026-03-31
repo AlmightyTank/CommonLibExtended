@@ -1,6 +1,6 @@
 ﻿using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 
-namespace CommonCore.Models;
+namespace CommonLibExtended.Models;
 
 public sealed class BuiltPresetResult
 {

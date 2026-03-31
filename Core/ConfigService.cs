@@ -4,12 +4,12 @@ using SPTarkov.Server.Core.Services;
 using System.Reflection;
 using System.Text.Json;
 
-namespace CommonCore.Core;
+namespace CommonLibExtended.Core;
 
 [Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
-public sealed class ConfigService(CommonCoreSettings settings) : IOnLoad
+public sealed class ConfigService(CLESettings settings) : IOnLoad
 {
-    private readonly CommonCoreSettings _settings = settings;
+    private readonly CLESettings _settings = settings;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -25,7 +25,7 @@ public sealed class ConfigService(CommonCoreSettings settings) : IOnLoad
 
         if (string.IsNullOrWhiteSpace(modPath))
         {
-            Console.WriteLine("[CommonCore] Could not resolve mod path, using default settings.");
+            Console.WriteLine("[CommonLibExtended] Could not resolve mod path, using default settings.");
             return;
         }
 
@@ -33,18 +33,18 @@ public sealed class ConfigService(CommonCoreSettings settings) : IOnLoad
 
         if (!File.Exists(configPath))
         {
-            Console.WriteLine($"[CommonCore] No config.json found at {configPath}, using defaults.");
+            Console.WriteLine($"[CommonLibExtended] No config.json found at {configPath}, using defaults.");
             return;
         }
 
         try
         {
             var json = await File.ReadAllTextAsync(configPath);
-            var loaded = JsonSerializer.Deserialize<CommonCoreSettings>(json, JsonOptions);
+            var loaded = JsonSerializer.Deserialize<CLESettings>(json, JsonOptions);
 
             if (loaded == null)
             {
-                Console.WriteLine("[CommonCore] config.json could not be parsed, using defaults.");
+                Console.WriteLine("[CommonLibExtended] config.json could not be parsed, using defaults.");
                 return;
             }
 
@@ -53,11 +53,11 @@ public sealed class ConfigService(CommonCoreSettings settings) : IOnLoad
             _settings.Traders = loaded.Traders ?? new();
             _settings.Quests = loaded.Quests ?? new();
 
-            Console.WriteLine("[CommonCore] Config loaded.");
+            Console.WriteLine("[CommonLibExtended] Config loaded.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[CommonCore] Failed to load config.json: {ex}");
+            Console.WriteLine($"[CommonLibExtended] Failed to load config.json: {ex}");
         }
     }
 }

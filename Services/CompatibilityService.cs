@@ -1,33 +1,26 @@
-using CommonCore.Core;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Services;
-using static CommonCore.Models.CommonCoreItemConfig;
 
-namespace CommonCore.Items.Services;
+namespace CommonLibExtended.Services;
 
 [Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
-public sealed class CompatibilityService
+public sealed class CompatibilityService(
+    ISptLogger<CompatibilityService> logger,
+    DatabaseService databaseService)
 {
     private const string AllSlotsKey = "AllSlots";
     private const string ConflictingItemsKey = "ConflictingItems";
     private const string AmmoKey = "Ammo";
 
-    private readonly ISptLogger<CompatibilityService> _logger;
-    private readonly DatabaseService _databaseService;
+    private readonly ISptLogger<CompatibilityService> _logger = logger;
+    private readonly DatabaseService _databaseService = databaseService;
 
     private readonly Dictionary<string, Dictionary<MongoId, List<MongoId>>> _compatibilityMapping = [];
-
-    public CompatibilityService(
-        ISptLogger<CompatibilityService> logger,
-        DatabaseService databaseService)
-    {
-        _logger = logger;
-        _databaseService = databaseService;
-    }
 
     public void Initialize()
     {

@@ -1,4 +1,5 @@
-using CommonCore.Models;
+using CommonLibExtended.Models;
+using CommonLibExtended.Services;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
@@ -7,20 +8,20 @@ using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Servers;
 using SPTarkov.Server.Core.Services;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public class CompatibilityCloneHelper(
-    CoreDebugLogHelper debugLogHelper,
+    DebugLogHelper debugLogHelper,
     DatabaseService databaseService,
     CompatibilityService compatibilityService
 )
 {
-    public void Process(CommonCoreItemRequest request)
+    public void Process(ItemModificationRequest request)
     {
-        if (!(request.Config.AmmoCloneCompatibility ?? false) &&
-            !(request.Config.WeaponCloneChamberCompatibility ?? false) &&
-            !(request.Config.MagCloneCartridgeCompatibility ?? false))
+        if (!(request.Extras.AmmoCloneCompatibility ?? false) &&
+            !(request.Extras.WeaponCloneChamberCompatibility ?? false) &&
+            !(request.Extras.MagCloneCartridgeCompatibility ?? false))
         {
             return;
         }
@@ -64,16 +65,16 @@ public class CompatibilityCloneHelper(
             var newMongoId = new MongoId(request.ItemId);
             var cloneMongoId = new MongoId(cloneId);
 
-            if (request.Config.AmmoCloneCompatibility == true)
+            if (request.Extras.AmmoCloneCompatibility == true)
             {
                 targetProps.AmmoCaliber = sourceProps.AmmoCaliber;
                 compatibilityService.AddAmmoClone(newMongoId, cloneMongoId);
                 debugLogHelper.LogService("CompatibilityCloneHelper", $"Cloned ammo caliber from {cloneId} -> {request.ItemId}");
             }
 
-            if (request.Config.WeaponCloneChamberCompatibility == true)
+            if (request.Extras.WeaponCloneChamberCompatibility == true)
             {
-                var chamberCloneId = request.Config.WeaponCloneChamberId ?? cloneId;
+                var chamberCloneId = request.Extras.WeaponCloneChamberId ?? cloneId;
 
                 if (databaseService.GetItems().TryGetValue(chamberCloneId, out var chamberSource)
                     && chamberSource.Properties?.Chambers != null)
@@ -91,9 +92,9 @@ public class CompatibilityCloneHelper(
                 }
             }
 
-            if (request.Config.MagCloneCartridgeCompatibility == true)
+            if (request.Extras.MagCloneCartridgeCompatibility == true)
             {
-                var magCloneId = request.Config.MagCloneCartridgeId ?? cloneId;
+                var magCloneId = request.Extras.MagCloneCartridgeId ?? cloneId;
 
                 if (databaseService.GetItems().TryGetValue(magCloneId, out var magSource)
                     && magSource.Properties?.Cartridges != null)

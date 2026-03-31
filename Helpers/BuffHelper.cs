@@ -1,36 +1,21 @@
-using CommonCore.Models;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Eft.Common;
+using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Services;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public class BuffHelper(
-    CoreDebugLogHelper debugLogHelper,
+    DebugLogHelper debugLogHelper,
     DatabaseService databaseService
 )
 {
 
     private readonly DatabaseService _databaseService = databaseService;
-    public void Process(CommonCoreItemRequest request)
-    {
-        if (!request.Config.AddBuffs == true)
-        {
-            return;
-        }
-
-        if (request.Config.Buffs == null || request.Config.Buffs.Count == 0)
-        {
-            debugLogHelper.LogError("BuffHelper", $"Invalid buffs for {request.ItemId}");
-            return;
-        }
-
-        AddBuffs(request.Config.Buffs);
-        debugLogHelper.LogService("BuffHelper", $"Added buffs for {request.ItemId}");
-    }
 
     public void AddBuffs(Dictionary<string, Buff[]> buffs)
     {
@@ -55,6 +40,7 @@ public class BuffHelper(
                 _databaseService.GetGlobals().Configuration.Health.Effects.Stimulator.Buffs[key] = value;
             }
         }
+        
     }
 
     private static string GetBuffMergeKey(Buff buff)

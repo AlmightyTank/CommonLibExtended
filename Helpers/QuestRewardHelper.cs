@@ -1,5 +1,4 @@
-using CommonCore.Core;
-using CommonCore.Models;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
@@ -7,13 +6,12 @@ using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
 using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Services;
-using static CommonCore.Models.CommonCoreItemConfig;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public sealed class QuestRewardHelper(
-    CoreDebugLogHelper debugLogHelper,
+    DebugLogHelper debugLogHelper,
     DatabaseService databaseService,
     BuiltPresetCache builtPresetCache)
 {
@@ -25,14 +23,14 @@ public sealed class QuestRewardHelper(
     private const string UsdTpl = "5696686a4bdc2da3298b456a";
     private const string EurTpl = "569668774bdc2da2298b4568";
 
-    public void Process(CommonCoreItemRequest request)
+    public void Process(ItemModificationRequest request)
     {
-        if (request.Config.QuestRewards == null || request.Config.QuestRewards.Count == 0)
+        if (request.Extras.QuestRewards == null || request.Extras.QuestRewards.Count == 0)
         {
             return;
         }
 
-        foreach (var config in request.Config.QuestRewards)
+        foreach (var config in request.Extras.QuestRewards)
         {
             if (config == null || string.IsNullOrWhiteSpace(config.QuestId))
             {

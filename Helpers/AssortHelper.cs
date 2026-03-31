@@ -1,22 +1,22 @@
-using CommonCore.Constants;
-using CommonCore.Core;
-using CommonCore.Models;
+using CommonLibExtended.Constants;
+using CommonLibExtended.Core;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Services;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public sealed class AssortHelper(
     DatabaseService databaseService,
-    CoreDebugLogHelper debugLogHelper,
-    CommonCoreSettings settings)
+    DebugLogHelper debugLogHelper,
+    CLESettings settings)
 {
-    public void Process(CommonCoreItemRequest request)
+    public void Process(ItemModificationRequest request)
     {
-        var assort = request.Config.AdditionalAssortData;
+        var assort = request.Extras.AdditionalAssortData;
         if (assort == null)
         {
             return;
@@ -134,7 +134,7 @@ public sealed class AssortHelper(
             return settings.DefaultTraderId;
         }
 
-        if (ItemMaps.TraderMap.TryGetValue(traderKey.ToLowerInvariant(), out var mappedTraderId))
+        if (Maps.TraderMap.TryGetValue(traderKey.ToLowerInvariant(), out var mappedTraderId))
         {
             return mappedTraderId;
         }

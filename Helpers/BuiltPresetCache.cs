@@ -1,10 +1,10 @@
-using CommonCore.Models;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public sealed class BuiltPresetCache
 {
     private readonly Dictionary<string, BuiltPresetResult> _byPresetId =

@@ -1,5 +1,4 @@
-using CommonCore.Core;
-using CommonCore.Models;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
@@ -8,18 +7,18 @@ using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Services;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public class EquipmentSlotHelper(
-    CoreDebugLogHelper debugLogHelper,
+    DebugLogHelper debugLogHelper,
     DatabaseService databaseService)
 {
     private static readonly MongoId PlayerInventoryId = new("55d7217a4bdc2d86028b456d");
 
-    public void Process(CommonCoreItemRequest request)
+    public void Process(ItemModificationRequest request)
     {
-        if (!request.Config.AddToPrimaryWeaponSlot == true && !request.Config.AddToHolsterWeaponSlot == true)
+        if (!request.Extras.AddToPrimaryWeaponSlot == true && !request.Extras.AddToHolsterWeaponSlot == true)
         {
             return;
         }
@@ -30,13 +29,13 @@ public class EquipmentSlotHelper(
             return;
         }
 
-        if (request.Config.AddToPrimaryWeaponSlot == true)
+        if (request.Extras.AddToPrimaryWeaponSlot == true)
         {
             AddToSlot(request.ItemId, playerInventory, "FirstPrimaryWeapon");
             AddToSlot(request.ItemId, playerInventory, "SecondPrimaryWeapon");
         }
 
-        if (request.Config.AddToHolsterWeaponSlot == true)
+        if (request.Extras.AddToHolsterWeaponSlot == true)
         {
             AddToSlot(request.ItemId, playerInventory, "Holster");
         }

@@ -1,10 +1,12 @@
-using CommonCore.Core;
+using CommonLibExtended.Core;
+using SPTarkov.DI.Annotations;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-public class CoreDebugLogHelper(CommonCoreSettings settings)
+[Injectable]
+public class DebugLogHelper(CLESettings settings)
 {
-    private readonly CommonCoreSettings _settings = settings;
+    private readonly CLESettings _settings = settings;
 
     public bool ShouldLog(string fileName, string? functionName = null)
     {

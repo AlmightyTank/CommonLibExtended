@@ -1,5 +1,4 @@
-using CommonCore.Core;
-using CommonCore.Models;
+using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
@@ -8,23 +7,23 @@ using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Services;
 using SPTarkov.Server.Core.Utils.Cloners;
 
-namespace CommonCore.Helpers;
+namespace CommonLibExtended.Helpers;
 
-[Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 5)]
+[Injectable]
 public sealed class SlotCloneHelper(
-    CoreDebugLogHelper debugLogHelper,
+    DebugLogHelper debugLogHelper,
     DatabaseService databaseService,
     ICloner cloner)
 {
-    public void Process(CommonCoreItemRequest request)
+    public void Process(ItemModificationRequest request)
     {
 
-        if (!request.Config.CopySlot == true)
+        if (!request.Extras.CopySlot == true)
         {
             return;
         }
 
-        if (request.Config.CopySlots == null || request.Config.CopySlots.Count == 0)
+        if (request.Extras.CopySlots == null || request.Extras.CopySlots.Count == 0)
         {
             debugLogHelper.LogError("SlotCloneHelper", $"Invalid CopySlotsInfo for {request.ItemId}");
             return;
@@ -41,7 +40,7 @@ public sealed class SlotCloneHelper(
         var existingSlots = targetItem.Properties.Slots?.ToList() ?? new List<Slot>();
         var newSlots = new List<Slot>();
 
-        foreach (var copyInfo in request.Config.CopySlots)
+        foreach (var copyInfo in request.Extras.CopySlots)
         {
             if (copyInfo == null)
             {
