@@ -158,14 +158,38 @@ public sealed class QuestAssortConfig
     public string? Status { get; set; }
 }
 
-public class PresetTraderConfig
+public sealed class PresetTraderConfig
 {
-    [JsonPropertyName("traderId")]
-    public string? TraderId { get; set; }
     [JsonPropertyName("presetId")]
-    public string? PresetId { get; set; }
-    [JsonPropertyName("loyal_level_items")]
-    public required ConfigBarterSettings ConfigBarterSettings { get; set; }
+    public string PresetId { get; set; } = string.Empty;
+
     [JsonPropertyName("barter_scheme")]
-    public required List<ConfigBarterScheme> Barters { get; set; } = new();
+    public List<ConfigBarterScheme> Barters { get; set; } = [];
+
+    [JsonPropertyName("loyal_level_items")]
+    public TraderOfferSettings LoyalLevelItems { get; set; } = new();
+}
+
+public sealed class ConfigBarterScheme
+{
+    [JsonPropertyName("template")]
+    public string Template { get; set; } = string.Empty;
+
+    [JsonPropertyName("count")]
+    public int Count { get; set; }
+}
+
+public sealed class TraderOfferSettings
+{
+    [JsonPropertyName("loyalLevel")]
+    public int LoyalLevel { get; set; } = 1;
+
+    [JsonPropertyName("unlimitedCount")]
+    public bool UnlimitedCount { get; set; } = true;
+
+    [JsonPropertyName("stackObjectsCount")]
+    public int StackObjectsCount { get; set; } = 999999;
+
+    [JsonPropertyName("buyRestrictionMax")]
+    public int BuyRestrictionMax { get; set; } = 0;
 }
