@@ -602,6 +602,14 @@ public sealed class QuestAssortHelper(
             return;
         }
 
+        if (!_databaseService.GetTraders().TryGetValue(traderId, out var trader) || trader?.Assort == null)
+        {
+            _debugLogHelper.LogError(
+                "QuestAssortHelper",
+                $"Trader {traderId} not found or assort is null while building quest reward display for assort {assortId}");
+            return;
+        }
+
         quest.Rewards ??= new Dictionary<string, List<Reward>>(StringComparer.OrdinalIgnoreCase);
 
         var bucket = NormalizeRewardBucket(status);
@@ -631,14 +639,14 @@ public sealed class QuestAssortHelper(
             return;
         }
 
-        var rewardItems = new List<Item>
+        var rewardItems = BuildQuestRewardItemsFromTraderAssort(trader.Assort, assortId);
+        if (rewardItems.Count == 0)
         {
-            new()
-            {
-                Id = new MongoId(assortId),
-                Template = new MongoId(template)
-            }
-        };
+            _debugLogHelper.LogError(
+                "QuestAssortHelper",
+                $"Failed to build quest reward items from trader assort for trader={traderId}, assort={assortId}");
+            return;
+        }
 
         var reward = new Reward
         {
@@ -671,7 +679,44 @@ public sealed class QuestAssortHelper(
 
         _debugLogHelper.LogService(
             "QuestAssortHelper",
-            $"Added and verified quest assort UI reward: quest={questId}, trader={traderId}, assort={assortId}, bucket={bucket}, loyalty={loyaltyLevel}, template={template}");
+            $"Added and verified quest assort UI reward: quest={questId}, trader={traderId}, assort={assortId}, bucket={bucket}, loyalty={loyaltyLevel}, template={template}, rewardItemCount={rewardItems.Count}");
+    }
+
+    private List<Item> BuildQuestRewardItemsFromTraderAssort(TraderAssort assort, string assortId)
+    {
+        if (assort?.Items == null || assort.Items.Count == 0)
+        {
+            return [];
+        }
+
+        var sourceItems = CollectOfferItems(assort.Items, assortId);
+        if (sourceItems.Count == 0)
+        {
+            return [];
+        }
+
+        return CloneItemsForQuestReward(sourceItems);
+    }
+
+    private static List<Item> CloneItemsForQuestReward(List<Item> sourceItems)
+    {
+        return sourceItems
+            .Select(CloneItemForQuestReward)
+            .ToList();
+    }
+
+    private static Item CloneItemForQuestReward(Item source)
+    {
+        return new Item
+        {
+            Id = source.Id,
+            Template = source.Template,
+            ParentId = source.ParentId,
+            SlotId = source.SlotId,
+            Location = source.Location,
+            Upd = source.Upd,
+            Desc = source.Desc
+        };
     }
 
     private string? ResolveFinalAssortId(ItemModificationRequest request, QuestAssortConfig config)
