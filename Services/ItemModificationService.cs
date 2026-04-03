@@ -1,5 +1,6 @@
 ﻿using CommonLibExtended.Helpers;
 using CommonLibExtended.Models;
+using CommonLibExtended.Services.ItemHelpers;
 using SPTarkov.DI.Annotations;
 
 namespace CommonLibExtended.Services;

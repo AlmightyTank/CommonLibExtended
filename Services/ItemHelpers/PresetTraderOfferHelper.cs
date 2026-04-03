@@ -1,13 +1,15 @@
 ﻿using CommonLibExtended.Constants;
 using CommonLibExtended.Core;
+using CommonLibExtended.Helpers;
 using CommonLibExtended.Models;
 using CommonLibExtended.Services;
+using CommonLibExtended.Services.ItemHelpers.Helpers;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Services;
 using WTTServerCommonLib.Models;
 
-namespace CommonLibExtended.Helpers;
+namespace CommonLibExtended.Services.ItemHelpers;
 
 [Injectable]
 public sealed class PresetTraderOfferHelper(
@@ -17,7 +19,7 @@ public sealed class PresetTraderOfferHelper(
     PresetBuildHelper presetBuildHelper,
     BuiltPresetCache builtPresetCache,
     PresetRegistryService presetRegistryService,
-    TraderOfferHelper traderOfferBuilder)
+    TraderOfferHelper traderOfferHelper)
 {
     private readonly DebugLogHelper _debugLogHelper = debugLogHelper;
     private readonly DatabaseService _databaseService = databaseService;
@@ -25,7 +27,7 @@ public sealed class PresetTraderOfferHelper(
     private readonly PresetBuildHelper _presetBuildHelper = presetBuildHelper;
     private readonly BuiltPresetCache _builtPresetCache = builtPresetCache;
     private readonly PresetRegistryService _presetRegistryService = presetRegistryService;
-    private readonly TraderOfferHelper _traderOfferBuilder = traderOfferBuilder;
+    private readonly TraderOfferHelper _traderOfferHelper = traderOfferHelper;
 
     public void Process(ItemModificationRequest request)
     {
@@ -50,12 +52,12 @@ public sealed class PresetTraderOfferHelper(
 
             foreach (var (sourceAssortId, config) in assortEntries)
             {
-                if (config == null || string.IsNullOrWhiteSpace(sourceAssortId) || string.IsNullOrWhiteSpace(config.PresetId))
+                if (!IsValidPresetTraderEntry(request, traderKey, sourceAssortId, config))
                 {
                     continue;
                 }
 
-                var preset = _presetRegistryService.GetById(config.PresetId);
+                var preset = _presetRegistryService.GetById(config!.PresetId);
                 if (preset == null)
                 {
                     _debugLogHelper.LogError(
@@ -65,10 +67,12 @@ public sealed class PresetTraderOfferHelper(
                 }
 
                 var builtPreset = AddPresetOfferToTrader(traderId, sourceAssortId, preset, config);
-                if (builtPreset != null)
+                if (builtPreset == null)
                 {
-                    _builtPresetCache.Store(config.PresetId, sourceAssortId, builtPreset);
+                    continue;
                 }
+
+                _builtPresetCache.Store(config.PresetId, sourceAssortId, builtPreset);
             }
         }
     }
@@ -90,7 +94,7 @@ public sealed class PresetTraderOfferHelper(
         {
             _debugLogHelper.LogError(
                 "PresetTraderOffer",
-                $"Failed to build preset {preset.Id} for trader {traderId} assort {sourceAssortId}");
+                $"Failed to build preset {preset.Id} for trader={traderId}, sourceAssort={sourceAssortId}");
             return null;
         }
 
@@ -99,11 +103,11 @@ public sealed class PresetTraderOfferHelper(
         {
             _debugLogHelper.LogError(
                 "PresetTraderOffer",
-                $"Built preset {preset.Id} returned invalid RootBuiltItemId for trader {traderId}");
+                $"Built preset {preset.Id} returned invalid RootBuiltItemId for trader={traderId}, sourceAssort={sourceAssortId}");
             return null;
         }
 
-        var success = _traderOfferBuilder.ApplyOffer(
+        var applied = _traderOfferHelper.ApplyPresetOffer(
             trader.Assort,
             offerId,
             builtPreset.Items,
@@ -112,7 +116,49 @@ public sealed class PresetTraderOfferHelper(
             "PresetTraderOffer",
             $"sourceAssort={sourceAssortId}, preset={preset.Id}, trader={traderId}");
 
-        return success ? builtPreset : null;
+        if (!applied)
+        {
+            _debugLogHelper.LogError(
+                "PresetTraderOffer",
+                $"Failed to apply preset offer offerId={offerId}, sourceAssort={sourceAssortId}, preset={preset.Id}, trader={traderId}");
+            return null;
+        }
+
+        _debugLogHelper.LogService(
+            "PresetTraderOffer",
+            $"Added preset trader offer offerId={offerId}, sourceAssort={sourceAssortId}, preset={preset.Id}, trader={traderId}, itemCount={builtPreset.Items.Count}, rootOldId={builtPreset.RootSourceItemId}, rootNewId={builtPreset.RootBuiltItemId}");
+
+        return builtPreset;
+    }
+
+    private bool IsValidPresetTraderEntry(
+        ItemModificationRequest request,
+        string traderKey,
+        string sourceAssortId,
+        PresetTraderConfig? config)
+    {
+        if (config == null)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(sourceAssortId))
+        {
+            _debugLogHelper.LogError(
+                "PresetTraderOffer",
+                $"Missing assortId for trader '{traderKey}' on item {request.ItemId}");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(config.PresetId))
+        {
+            _debugLogHelper.LogError(
+                "PresetTraderOffer",
+                $"Missing presetId for trader '{traderKey}' assort '{sourceAssortId}'");
+            return false;
+        }
+
+        return true;
     }
 
     private string? ResolveTraderId(string? traderKey)

@@ -1,13 +1,13 @@
+using CommonLibExtended.Helpers;
 using CommonLibExtended.Models;
+using CommonLibExtended.Services.ItemHelpers.Helpers;
 using SPTarkov.DI.Annotations;
-using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
-using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Services;
 
-namespace CommonLibExtended.Helpers;
+namespace CommonLibExtended.Services.ItemHelpers;
 
 [Injectable]
 public sealed class QuestRewardHelper(
@@ -23,9 +23,13 @@ public sealed class QuestRewardHelper(
     private const string UsdTpl = "5696686a4bdc2da3298b456a";
     private const string EurTpl = "569668774bdc2da2298b4568";
 
+    private readonly DebugLogHelper _debugLogHelper = debugLogHelper;
+    private readonly DatabaseService _databaseService = databaseService;
+    private readonly BuiltPresetCache _builtPresetCache = builtPresetCache;
+
     public void Process(ItemModificationRequest request)
     {
-        if (request.Extras.QuestRewards == null || request.Extras.QuestRewards.Count == 0)
+        if (request.Extras?.QuestRewards == null || request.Extras.QuestRewards.Count == 0)
         {
             return;
         }
@@ -34,7 +38,7 @@ public sealed class QuestRewardHelper(
         {
             if (config == null || string.IsNullOrWhiteSpace(config.QuestId))
             {
-                debugLogHelper.LogError("QuestReward", $"Missing questId for item {request.ItemId}");
+                _debugLogHelper.LogError("QuestReward", $"Missing questId for item {request.ItemId}");
                 continue;
             }
 
@@ -73,7 +77,7 @@ public sealed class QuestRewardHelper(
                 case "weaponpreset":
                     if (string.IsNullOrWhiteSpace(config.PresetId))
                     {
-                        debugLogHelper.LogError("QuestReward", $"Missing presetId for quest {config.QuestId}");
+                        _debugLogHelper.LogError("QuestReward", $"Missing presetId for quest {config.QuestId}");
                         continue;
                     }
 
@@ -94,7 +98,7 @@ public sealed class QuestRewardHelper(
                     break;
 
                 default:
-                    debugLogHelper.LogError(
+                    _debugLogHelper.LogError(
                         "QuestReward",
                         $"Unknown rewardType '{config.RewardType}' for item {request.ItemId}");
                     break;
@@ -117,7 +121,8 @@ public sealed class QuestRewardHelper(
 
         EnsureRewardBuckets(quest);
 
-        var rewards = quest.Rewards![rewardBucket];
+        var normalizedBucket = NormalizeRewardBucket(rewardBucket);
+        var rewards = quest.Rewards![normalizedBucket];
 
         var rewardRootId = new MongoId();
         var rewardItemId = new MongoId();
@@ -146,9 +151,9 @@ public sealed class QuestRewardHelper(
 
         rewards.Add(reward);
 
-        debugLogHelper.LogService(
+        _debugLogHelper.LogService(
             "QuestReward",
-            $"Added item reward {itemTpl} x{count} to quest {questId} ({rewardBucket})");
+            $"Added item reward {itemTpl} x{count} to quest {questId} ({normalizedBucket})");
     }
 
     public void AddAmmoReward(
@@ -194,11 +199,10 @@ public sealed class QuestRewardHelper(
 
         EnsureRewardBuckets(quest);
 
-        // presetId is ONLY a reference to a cached built preset template
-        var builtPreset = builtPresetCache.GetByPresetId(presetId);
+        var builtPreset = _builtPresetCache.GetByPresetId(presetId);
         if (builtPreset == null)
         {
-            debugLogHelper.LogError(
+            _debugLogHelper.LogError(
                 "QuestReward",
                 $"Built preset template for source preset {presetId} not found in cache for quest {questId}");
             return;
@@ -206,9 +210,18 @@ public sealed class QuestRewardHelper(
 
         if (builtPreset.Items == null || builtPreset.Items.Count == 0)
         {
-            debugLogHelper.LogError(
+            _debugLogHelper.LogError(
                 "QuestReward",
                 $"Built preset template for source preset {presetId} has no items");
+            return;
+        }
+
+        var rootSourceId = _builtPresetCache.ResolveFinalOfferIdFromPresetId(presetId);
+        if (string.IsNullOrWhiteSpace(rootSourceId))
+        {
+            _debugLogHelper.LogError(
+                "QuestReward",
+                $"Built preset template for source preset {presetId} has invalid RootBuiltItemId");
             return;
         }
 
@@ -234,7 +247,7 @@ public sealed class QuestRewardHelper(
             {
                 if (!idMap.TryGetValue(sourceParentId, out var mappedParent))
                 {
-                    debugLogHelper.LogError(
+                    _debugLogHelper.LogError(
                         "QuestReward",
                         $"Failed to map parent {sourceParentId} for preset reward clone item {sourceId} from source preset {presetId}");
                     return;
@@ -250,11 +263,10 @@ public sealed class QuestRewardHelper(
                 ParentId = newParentId,
                 SlotId = sourceItem.SlotId,
                 Location = sourceItem.Location,
-                Upd = CloneUpd(sourceItem.Upd),
+                Upd = CloneUpd(sourceItem.Upd)
             };
 
-            // Reward root should not remain attached to hideout
-            if (string.Equals(sourceId, builtPreset.RootBuiltItemId, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(sourceId, rootSourceId, StringComparison.OrdinalIgnoreCase))
             {
                 newItem.ParentId = null;
                 newItem.SlotId = null;
@@ -268,24 +280,26 @@ public sealed class QuestRewardHelper(
 
             rewardItems.Add(newItem);
 
-            debugLogHelper.LogService(
+            _debugLogHelper.LogService(
                 "QuestReward",
                 $"Preset reward clone from source preset {presetId}: {sourceId} -> {newItem.Id}, parent={newItem.ParentId}, tpl={newItem.Template}");
         }
 
-        if (!idMap.TryGetValue(builtPreset.RootBuiltItemId, out var rewardRootId))
+        if (!idMap.TryGetValue(rootSourceId, out var rewardRootId))
         {
-            debugLogHelper.LogError(
+            _debugLogHelper.LogError(
                 "QuestReward",
                 $"Could not resolve reward root for source preset {presetId}");
             return;
         }
 
+        var normalizedBucket = NormalizeRewardBucket(rewardBucket);
+
         var reward = new Reward
         {
             Id = new MongoId(),
             Type = RewardType.Item,
-            Index = quest.Rewards![rewardBucket].Count,
+            Index = quest.Rewards![normalizedBucket].Count,
             Target = rewardRootId.ToString(),
             Value = 1,
             FindInRaid = findInRaid,
@@ -296,11 +310,11 @@ public sealed class QuestRewardHelper(
             Items = rewardItems
         };
 
-        quest.Rewards![rewardBucket].Add(reward);
+        quest.Rewards![normalizedBucket].Add(reward);
 
-        debugLogHelper.LogService(
+        _debugLogHelper.LogService(
             "QuestReward",
-            $"Added preset reward using source preset reference {presetId} to quest {questId} with {rewardItems.Count} items ({rewardBucket})");
+            $"Added preset reward using source preset reference {presetId} to quest {questId} with {rewardItems.Count} items ({normalizedBucket})");
     }
 
     private bool TryGetQuest(string questId, out Quest quest)
@@ -309,13 +323,13 @@ public sealed class QuestRewardHelper(
 
         if (string.IsNullOrWhiteSpace(questId))
         {
-            debugLogHelper.LogError("QuestReward", "questId is null or empty");
+            _debugLogHelper.LogError("QuestReward", "questId is null or empty");
             return false;
         }
 
-        if (!databaseService.GetTables().Templates.Quests.TryGetValue(questId, out quest))
+        if (!_databaseService.GetTables().Templates.Quests.TryGetValue(questId, out quest))
         {
-            debugLogHelper.LogError("QuestReward", $"Quest {questId} not found");
+            _debugLogHelper.LogError("QuestReward", $"Quest {questId} not found");
             return false;
         }
 
@@ -361,7 +375,7 @@ public sealed class QuestRewardHelper(
 
         if (currencyTpl != RubTpl && currencyTpl != UsdTpl && currencyTpl != EurTpl)
         {
-            debugLogHelper.LogError("QuestReward", $"Invalid currency tpl {currencyTpl}, defaulting to RUB");
+            _debugLogHelper.LogError("QuestReward", $"Invalid currency tpl {currencyTpl}, defaulting to RUB");
             return RubTpl;
         }
 
@@ -416,15 +430,5 @@ public sealed class QuestRewardHelper(
             Sight = original.Sight,
             SpawnedInSession = original.SpawnedInSession
         };
-    }
-
-    private static Dictionary<string, object>? CloneProperties(Dictionary<string, object>? original)
-    {
-        if (original == null)
-        {
-            return null;
-        }
-
-        return new Dictionary<string, object>(original, StringComparer.OrdinalIgnoreCase);
     }
 }

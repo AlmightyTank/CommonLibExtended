@@ -1,3 +1,4 @@
+using CommonLibExtended.Helpers;
 using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
@@ -6,7 +7,7 @@ using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Utils;
 using SPTarkov.Server.Core.Services;
 
-namespace CommonLibExtended.Helpers;
+namespace CommonLibExtended.Services.ItemHelpers;
 
 [Injectable]
 public class BuffHelper(

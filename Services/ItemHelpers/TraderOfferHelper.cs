@@ -1,16 +1,17 @@
+using CommonLibExtended.Helpers;
 using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 
-namespace CommonLibExtended.Helpers;
+namespace CommonLibExtended.Services.ItemHelpers;
 
 [Injectable]
 public sealed class TraderOfferHelper(DebugLogHelper debugLogHelper)
 {
     private readonly DebugLogHelper _debugLogHelper = debugLogHelper;
 
-    public bool ApplyOffer(
+    public bool ApplyPresetOffer(
         TraderAssort assort,
         string offerId,
         List<Item> builtItems,
@@ -18,6 +19,76 @@ public sealed class TraderOfferHelper(DebugLogHelper debugLogHelper)
         TraderOfferSettings? settings,
         string sourceName,
         string context)
+    {
+        if (builtItems == null || builtItems.Count == 0)
+        {
+            _debugLogHelper.LogError(sourceName, $"{context}: preset builtItems is null or empty");
+            return false;
+        }
+
+        var rootExists = builtItems.Any(x => x.Id.ToString().Equals(offerId, StringComparison.OrdinalIgnoreCase));
+        if (!rootExists)
+        {
+            _debugLogHelper.LogError(
+                sourceName,
+                $"{context}: preset root item {offerId} was not found in builtItems");
+            return false;
+        }
+
+        return ApplyOfferInternal(
+            assort,
+            offerId,
+            builtItems,
+            barters,
+            settings,
+            sourceName,
+            context,
+            offerKind: "preset");
+    }
+
+    public bool ApplySingleItemOffer(
+        TraderAssort assort,
+        string offerId,
+        Item rootItem,
+        List<ConfigBarterScheme>? barters,
+        TraderOfferSettings? settings,
+        string sourceName,
+        string context)
+    {
+        if (rootItem == null)
+        {
+            _debugLogHelper.LogError(sourceName, $"{context}: rootItem is null");
+            return false;
+        }
+
+        if (!rootItem.Id.ToString().Equals(offerId, StringComparison.OrdinalIgnoreCase))
+        {
+            _debugLogHelper.LogError(
+                sourceName,
+                $"{context}: single-item root id {rootItem.Id} does not match offerId {offerId}");
+            return false;
+        }
+
+        return ApplyOfferInternal(
+            assort,
+            offerId,
+            [rootItem],
+            barters,
+            settings,
+            sourceName,
+            context,
+            offerKind: "single");
+    }
+
+    private bool ApplyOfferInternal(
+        TraderAssort assort,
+        string offerId,
+        List<Item> builtItems,
+        List<ConfigBarterScheme>? barters,
+        TraderOfferSettings? settings,
+        string sourceName,
+        string context,
+        string offerKind)
     {
         if (assort == null)
         {
@@ -28,6 +99,12 @@ public sealed class TraderOfferHelper(DebugLogHelper debugLogHelper)
         if (string.IsNullOrWhiteSpace(offerId))
         {
             _debugLogHelper.LogError(sourceName, $"{context}: offerId is null or empty");
+            return false;
+        }
+
+        if (builtItems == null || builtItems.Count == 0)
+        {
+            _debugLogHelper.LogError(sourceName, $"{context}: builtItems is null or empty");
             return false;
         }
 
@@ -52,7 +129,7 @@ public sealed class TraderOfferHelper(DebugLogHelper debugLogHelper)
 
             _debugLogHelper.LogService(
                 sourceName,
-                $"{context}: added assort item Id={item.Id}, ParentId={item.ParentId}, Template={item.Template}, SlotId={item.SlotId}");
+                $"{context}: added {offerKind} assort item Id={item.Id}, ParentId={item.ParentId}, Template={item.Template}, SlotId={item.SlotId}");
         }
 
         ApplyBarterScheme(assort, offerId, barters, sourceName, context);
@@ -61,7 +138,16 @@ public sealed class TraderOfferHelper(DebugLogHelper debugLogHelper)
 
         _debugLogHelper.LogService(
             sourceName,
-            $"{context}: offer applied for offerId={offerId}, itemCount={builtItems.Count}");
+            $"{context}: DEBUG OFFER START\n" +
+            $"OfferId={offerId}\n" +
+            $"ITEMS:\n{DebugDumpHelper.DumpItems(builtItems)}\n" +
+            $"BARTERS:\n{DebugDumpHelper.DumpItems(barters)}\n" +
+            $"SETTINGS:\n{DebugDumpHelper.DumpItems(settings)}\n" +
+            $"--- END OFFER DEBUG ---");
+
+        _debugLogHelper.LogService(
+            sourceName,
+            $"{context}: applied {offerKind} offer for offerId={offerId}, itemCount={builtItems.Count}");
 
         return true;
     }

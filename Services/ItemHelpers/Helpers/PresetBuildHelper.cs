@@ -1,4 +1,5 @@
-using CommonCore.Generator;
+using CommonLibExtended.Generator;
+using CommonLibExtended.Helpers;
 using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
@@ -6,7 +7,7 @@ using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Utils;
 
-namespace CommonLibExtended.Helpers;
+namespace CommonLibExtended.Services.ItemHelpers.Helpers;
 
 [Injectable]
 public sealed class PresetBuildHelper(

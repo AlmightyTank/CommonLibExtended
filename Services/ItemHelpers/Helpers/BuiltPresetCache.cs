@@ -1,7 +1,7 @@
 using CommonLibExtended.Models;
 using SPTarkov.DI.Annotations;
 
-namespace CommonLibExtended.Helpers;
+namespace CommonLibExtended.Services.ItemHelpers.Helpers;
 
 [Injectable]
 public sealed class BuiltPresetCache
