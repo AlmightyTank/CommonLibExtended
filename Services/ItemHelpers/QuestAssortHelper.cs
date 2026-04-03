@@ -421,7 +421,7 @@ public sealed class QuestAssortHelper(
 
                 var offerSettings = MapTraderOfferSettings(traderConfig.ConfigBarterSettings);
 
-                var rootItem = _standardTraderItemBuildHelper.BuildSingleItemForTrader(
+                var rootItem = _standardTraderItemBuildHelper.BuildItemsForTrader(
                     request,
                     configAssortId,
                     offerSettings);

@@ -49,30 +49,30 @@ public sealed class TraderOfferHelper(DebugLogHelper debugLogHelper)
     public bool ApplySingleItemOffer(
         TraderAssort assort,
         string offerId,
-        Item rootItem,
+        List<Item> rootItem,
         List<ConfigBarterScheme>? barters,
         TraderOfferSettings? settings,
         string sourceName,
         string context)
     {
-        if (rootItem == null)
+        if (rootItem == null || rootItem.Count == 0)
         {
-            _debugLogHelper.LogError(sourceName, $"{context}: rootItem is null");
+            _debugLogHelper.LogError(sourceName, $"{context}: rootItem is null or empty");
             return false;
         }
 
-        if (!rootItem.Id.ToString().Equals(offerId, StringComparison.OrdinalIgnoreCase))
+        if (!rootItem[0].Id.ToString().Equals(offerId, StringComparison.OrdinalIgnoreCase))
         {
             _debugLogHelper.LogError(
                 sourceName,
-                $"{context}: single-item root id {rootItem.Id} does not match offerId {offerId}");
+                $"{context}: single-item root id {rootItem[0].Id} does not match offerId {offerId}");
             return false;
         }
 
         return ApplyOfferInternal(
             assort,
             offerId,
-            [rootItem],
+            rootItem,
             barters,
             settings,
             sourceName,
