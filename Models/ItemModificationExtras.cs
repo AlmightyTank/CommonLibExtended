@@ -119,11 +119,11 @@ public class ConflictingInfos
 public class QuestRewardConfig
 {
     [JsonPropertyName("questId")]
-    public string QuestId { get; set; } = string.Empty;
+    public string? QuestId { get; set; }
     [JsonPropertyName("rewardType")]
-    public string RewardType { get; set; } = "Item";
+    public string? RewardType { get; set; }
     [JsonPropertyName("count")]
-    public int Count { get; set; } = 1;
+    public int Count { get; set; }
     [JsonPropertyName("findInRaid")]
     public bool FindInRaid { get; set; }
     [JsonPropertyName("isHidden")]
