@@ -9,8 +9,6 @@ namespace CommonLibExtended.Services;
 public sealed class ItemModificationService(
     DebugLogHelper debugLogHelper,
     QuestAssortHelper questAssortHelper,
-    BuffHelper buffHelper,
-    CraftHelper craftHelper,
     CompatibilityService compatibilityService,
     SlotCloneHelper slotCloneHelper,
     PresetTraderOfferHelper presetTraderOfferHelper,
@@ -75,40 +73,6 @@ public sealed class ItemModificationService(
             {
                 presetTraderOfferHelper.Process(request);
                 debugLogHelper.LogService("PresetTraderOfferHelper", $"Added preset traders for {request.ItemId}");
-            }
-        }
-    }
-
-    public void ProcessBuffs(IEnumerable<ItemModificationRequest> requests)
-    {
-        foreach (var request in requests)
-        {
-            if (!ValidateRequest(request))
-            {
-                continue;
-            }
-
-            if (request.Extras?.AddBuffs == true && request.Extras?.Buffs is { Count: > 0 })
-            {
-                buffHelper.AddBuffs(request.Extras.Buffs);
-                debugLogHelper.LogService("BuffHelper", $"Added buffs for {request.ItemId}");
-            }
-        }
-    }
-
-    public void ProcessCrafts(IEnumerable<ItemModificationRequest> requests)
-    {
-        foreach (var request in requests)
-        {
-            if (!ValidateRequest(request))
-            {
-                continue;
-            }
-
-            if (request.Extras?.AddCrafts == true && request.Extras?.Crafts is { Length: > 0 })
-            {
-                craftHelper.AddCrafts(request.Extras.Crafts);
-                debugLogHelper.LogService("CraftHelper", $"Added craft(s) for {request.ItemId}");
             }
         }
     }

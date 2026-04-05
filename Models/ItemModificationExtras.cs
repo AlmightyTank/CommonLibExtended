@@ -1,4 +1,3 @@
-using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Eft.Hideout;
@@ -23,18 +22,6 @@ public sealed class ItemModificationExtras
 
     [JsonPropertyName("magCloneCartridgeCompatibility")]
     public bool? MagCloneCartridgeCompatibility { get; set; }
-
-    [JsonPropertyName("addBuffs")]
-    public bool? AddBuffs { get; set; }
-
-    [JsonPropertyName("buffs")]
-    public Dictionary<string, Buff[]>? Buffs { get; set; }
-
-    [JsonPropertyName("addCrafts")]
-    public bool? AddCrafts { get; set; }
-
-    [JsonPropertyName("crafts")]
-    public HideoutProduction[]? Crafts { get; set; }
 
     [JsonPropertyName("additionalAssortData")]
     public TraderAssort? AdditionalAssortData { get; set; }
@@ -74,34 +61,31 @@ public sealed class ItemModificationExtras
         if (CopySlot == true && (CopySlots == null || CopySlots.Count == 0))
             throw new InvalidDataException($"[{itemId}] copySlots is required when copySlot is true");
 
-        if (AddBuffs == true && (Buffs == null || Buffs.Count == 0))
-            throw new InvalidDataException($"[{itemId}] buffs is required when addBuffs is true");
-
-        if (AddCrafts == true && Crafts == null)
-            throw new InvalidDataException($"[{itemId}] crafts is required when addCrafts is true");
-
         if (AddToQuestRewards == true && (QuestRewards == null || QuestRewards.Count == 0))
             throw new InvalidDataException($"[{itemId}] questRewards is required when addToQuestRewards is true");
 
-        if (AddToQuestAssorts == true && (QuestAssorts == null))
+        if (AddToQuestAssorts == true && QuestAssorts == null)
             throw new InvalidDataException($"[{itemId}] questAssorts is required when addToQuestAssorts is true");
 
         if (PresetTraders != null && PresetTraders.Count == 0)
             throw new InvalidDataException($"[{itemId}] presetTraders was provided but is empty");
     }
-
 }
 
 public class CopySlotConfig
 {
     [JsonPropertyName("id")]
     public required virtual string Id { get; set; }
+
     [JsonPropertyName("newSlotName")]
     public required virtual string NewSlotName { get; set; }
+
     [JsonPropertyName("tgtSlotName")]
     public virtual string? TgtSlotName { get; set; }
+
     [JsonPropertyName("itemsAddtoSlot")]
     public virtual string[]? ItemsAddToSlot { get; set; }
+
     [JsonPropertyName("required")]
     public virtual bool? Required { get; set; }
 }
@@ -110,8 +94,10 @@ public class ConflictingInfos
 {
     [JsonPropertyName("id")]
     public required string Id { get; set; }
+
     [JsonPropertyName("tgtSlotName")]
     public required string TgtSlotName { get; set; }
+
     [JsonPropertyName("itemsAddtoSlot")]
     public string[]? ItemsAddToSlot { get; set; }
 }
@@ -120,18 +106,25 @@ public class QuestRewardConfig
 {
     [JsonPropertyName("questId")]
     public string? QuestId { get; set; }
+
     [JsonPropertyName("rewardType")]
     public string? RewardType { get; set; }
+
     [JsonPropertyName("count")]
     public int Count { get; set; }
+
     [JsonPropertyName("findInRaid")]
     public bool FindInRaid { get; set; }
+
     [JsonPropertyName("isHidden")]
     public bool IsHidden { get; set; }
+
     [JsonPropertyName("currencyTpl")]
     public string? CurrencyTpl { get; set; }
+
     [JsonPropertyName("presetId")]
     public string? PresetId { get; set; }
+
     [JsonPropertyName("status")]
     public string? Status { get; set; }
 }
@@ -140,6 +133,7 @@ public sealed class RewardDisplayItem
 {
     [JsonPropertyName("_id")]
     public string Id { get; set; } = string.Empty;
+
     [JsonPropertyName("_tpl")]
     public string Template { get; set; } = string.Empty;
 }
@@ -148,12 +142,16 @@ public sealed class QuestAssortConfig
 {
     [JsonPropertyName("questId")]
     public string QuestId { get; set; } = string.Empty;
+
     [JsonPropertyName("traderId")]
     public string? TraderId { get; set; }
+
     [JsonPropertyName("assortId")]
     public string? AssortId { get; set; }
+
     [JsonPropertyName("presetId")]
     public string? PresetId { get; set; }
+
     [JsonPropertyName("status")]
     public string? Status { get; set; }
 }

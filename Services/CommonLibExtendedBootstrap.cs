@@ -12,14 +12,14 @@ namespace CommonLibExtended.Services;
 [Injectable(InjectionType.Singleton)]
 public sealed class CommonLibExtendedBootstrap(
     ISptLogger<CommonLibExtendedBootstrap> logger,
-    JsonConfigLoader jsonConfigLoader,
+    ItemModificationConfigLoader itemModificationConfigLoader,
     CompatibilityService compatibilityService,
     ItemModificationService itemModificationService,
     ModPathHelper modPathHelper,
     PresetRegistryLoader presetRegistryLoader)
 {
     private readonly ISptLogger<CommonLibExtendedBootstrap> _logger = logger;
-    private readonly JsonConfigLoader _jsonConfigLoader = jsonConfigLoader;
+    private readonly ItemModificationConfigLoader _itemModificationConfigLoader = itemModificationConfigLoader;
     private readonly CompatibilityService _compatibilityService = compatibilityService;
     private readonly ItemModificationService _itemModificationService = itemModificationService;
     private readonly ModPathHelper _modPathHelper = modPathHelper;
@@ -84,36 +84,6 @@ public sealed class CommonLibExtendedBootstrap(
         }
 
         ProcessPhase(session, ItemModificationPhases.PresetTraders);
-        await Task.CompletedTask;
-    }
-
-    public async Task ProcessBuffs(Assembly assembly, params string[] relativePaths)
-    {
-        var session = GetOrCreateSession(assembly, relativePaths);
-        EnsureCompatibilityInitialized(session);
-
-        if (session.Requests.Count == 0)
-        {
-            await Task.CompletedTask;
-            return;
-        }
-
-        ProcessPhase(session, ItemModificationPhases.Buffs);
-        await Task.CompletedTask;
-    }
-
-    public async Task ProcessCrafts(Assembly assembly, params string[] relativePaths)
-    {
-        var session = GetOrCreateSession(assembly, relativePaths);
-        EnsureCompatibilityInitialized(session);
-
-        if (session.Requests.Count == 0)
-        {
-            await Task.CompletedTask;
-            return;
-        }
-
-        ProcessPhase(session, ItemModificationPhases.Crafts);
         await Task.CompletedTask;
     }
 
@@ -264,7 +234,7 @@ public sealed class CommonLibExtendedBootstrap(
             return [];
         }
 
-        var requests = _jsonConfigLoader.LoadFromRelativePaths(assembly, validRelativePaths.ToArray());
+        var requests = _itemModificationConfigLoader.LoadFromRelativePaths(assembly, validRelativePaths.ToArray());
 
         if (requests.Count == 0)
         {
@@ -328,16 +298,6 @@ public sealed class CommonLibExtendedBootstrap(
             ProcessPhase(session, ItemModificationPhases.PresetTraders);
         }
 
-        if (phases.HasFlag(ItemModificationPhases.Buffs))
-        {
-            ProcessPhase(session, ItemModificationPhases.Buffs);
-        }
-
-        if (phases.HasFlag(ItemModificationPhases.Crafts))
-        {
-            ProcessPhase(session, ItemModificationPhases.Crafts);
-        }
-
         if (phases.HasFlag(ItemModificationPhases.EquipmentSlots))
         {
             ProcessPhase(session, ItemModificationPhases.EquipmentSlots);
@@ -378,14 +338,6 @@ public sealed class CommonLibExtendedBootstrap(
 
             case ItemModificationPhases.PresetTraders:
                 _itemModificationService.ProcessPresetTraders(session.Requests);
-                break;
-
-            case ItemModificationPhases.Buffs:
-                _itemModificationService.ProcessBuffs(session.Requests);
-                break;
-
-            case ItemModificationPhases.Crafts:
-                _itemModificationService.ProcessCrafts(session.Requests);
                 break;
 
             case ItemModificationPhases.EquipmentSlots:
